@@ -1,0 +1,8 @@
+{
+  "rust-analyzer.checkOnSave.overrideCommand": [
+    "cargo",
+    "check",
+    "-vv",
+    "--all-targets",
+  ]
+}
