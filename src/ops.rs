@@ -1,9 +1,8 @@
-use std::i64;
-
-use pest::iterators::{Pair, Pairs};
-
 use crate::errors::HakuError;
 use crate::parse::Rule;
+use bitmask_enum::bitmask;
+use pest::iterators::{Pair, Pairs};
+use std::i64;
 
 /// Describes initial condition of a `for` statement
 #[derive(Debug, Clone)]
@@ -22,14 +21,11 @@ pub enum Seq {
 
 /// external command and recipe flags. Flags are added as prefixes of a script lines.
 
-/// Do not print the command before execution (`@`)
-pub const FLAG_QUIET: u32 = 1;
-/// Do not interrupt the execution if external command has failed(`-`)
-pub const FLAG_PASS: u32 = 2;
-
-/// Returns true if a value `flags` has a `flag` on
-pub fn is_flag_on(flags: u32, flag: u32) -> bool {
-    flags & flag == flag
+#[bitmask(u8)] // u8
+pub enum CommandFlags {
+    Quiet,
+    Pass,
+    Hide,
 }
 
 /// Operations processed by the engine internally
@@ -44,7 +40,7 @@ pub enum Op {
     ///
     /// * flags - runtime flags, e.g. ignore file not found errors
     /// * path to the script
-    Include(u32, String),
+    Include(CommandFlags, String),
     /// Interrupt script with a error - error message
     Error(String),
     /// List of features which enable a following block of code
@@ -113,12 +109,12 @@ pub enum Op {
     /// * list of recipes this one depends on (they are executed before this recipe)
     ///
     /// Example: `recipe-name loc_var1 +loc_var2: dependency1 dependency2
-    Recipe(String, u32, Vec<String>, Vec<String>),
+    Recipe(String, CommandFlags, Vec<String>, Vec<String>),
     /// Execute external command using the current shell
     ///
     /// * execution flags (e.g., "echo off" or "ignore shell errors")
     /// * command line to execute
-    Shell(u32, String),
+    Shell(CommandFlags, String),
 
     // here goes a list of basic building blocks of any expression
     /// Integer value(i64)
@@ -132,26 +128,29 @@ pub enum Op {
     /// Logical negation of a value
     Not(Vec<Op>),
     /// change working directory: flags, directory
-    Cd(u32, String),
+    Cd(CommandFlags, String),
     /// PAUSE statement
     Pause,
 }
 
 /// Converts a prefix of a script line to a runtime flags
-fn str_to_flags(s: &str) -> u32 {
-    let mut flags: u32 = 0;
+fn str_to_command_flags(s: &str) -> CommandFlags {
+    let mut cmd_flags = CommandFlags::none();
     if s.find('@').is_some() {
-        flags |= FLAG_QUIET;
+        cmd_flags |= CommandFlags::Quiet;
     }
     if s.find('-').is_some() {
-        flags |= FLAG_PASS;
+        cmd_flags |= CommandFlags::Pass;
     }
-    flags
+    if s.find('_').is_some() {
+        cmd_flags |= CommandFlags::Hide;
+    }
+    cmd_flags
 }
 
 /// Parses a script line that describes a recipe
 pub fn build_recipe(p: Pairs<Rule>) -> Result<Op, HakuError> {
-    let mut flags: u32 = 0;
+    let mut flags = CommandFlags::none();
     let mut name = String::new();
     let mut vars = Vec::new();
     let mut deps = Vec::new();
@@ -159,7 +158,7 @@ pub fn build_recipe(p: Pairs<Rule>) -> Result<Op, HakuError> {
     let pstr = p.as_str().to_string();
     for s in p {
         match s.as_rule() {
-            Rule::cmd_flags => flags = str_to_flags(s.as_str()),
+            Rule::cmd_flags => flags = str_to_command_flags(s.as_str()),
             Rule::sec_name => name = s.as_str().to_string(),
             Rule::sec_args => {
                 let inner = s.into_inner();
@@ -189,11 +188,11 @@ pub fn build_recipe(p: Pairs<Rule>) -> Result<Op, HakuError> {
 
 /// Parses a script line with cd statement
 pub fn build_cd(p: Pairs<Rule>) -> Result<Op, HakuError> {
-    let mut flags: u32 = 0;
+    let mut flags: CommandFlags = CommandFlags::none();
     let mut cmd = String::new();
     for s in p {
         match s.as_rule() {
-            Rule::cmd_flags => flags = str_to_flags(s.as_str()),
+            Rule::cmd_flags => flags = str_to_command_flags(s.as_str()),
             Rule::cd_body => cmd = strip_quotes(s.as_str()).to_string(),
             _ => {}
         }
@@ -204,11 +203,11 @@ pub fn build_cd(p: Pairs<Rule>) -> Result<Op, HakuError> {
 
 /// Parses a script line with include statement
 pub fn build_include(p: Pairs<Rule>) -> Result<Op, HakuError> {
-    let mut flags: u32 = 0;
+    let mut flags = CommandFlags::none();
     let mut cmd = String::new();
     for s in p {
         match s.as_rule() {
-            Rule::cmd_flags => flags = str_to_flags(s.as_str()),
+            Rule::cmd_flags => flags = str_to_command_flags(s.as_str()),
             Rule::include_body => cmd = strip_quotes(s.as_str()).to_string(),
             _ => {}
         }
@@ -231,11 +230,11 @@ pub fn build_error(p: Pairs<Rule>) -> Result<Op, HakuError> {
 
 /// Parses a script line with external shell execution
 pub fn build_shell_cmd(p: Pairs<Rule>) -> Result<Op, HakuError> {
-    let mut flags: u32 = 0;
+    let mut flags = CommandFlags::none();
     let mut cmd = String::new();
     for s in p {
         match s.as_rule() {
-            Rule::cmd_flags => flags = str_to_flags(s.as_str()),
+            Rule::cmd_flags => flags = str_to_command_flags(s.as_str()),
             Rule::shell_cmd => cmd = s.as_str().to_string(),
             _ => {}
         }

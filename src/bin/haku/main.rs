@@ -5,6 +5,7 @@ use std::process::exit;
 
 use config::{parse_args, Config};
 
+use haku::CommandFlags;
 use haku::errors::HakuError;
 use haku::vm::{Engine, RunOpts};
 
@@ -46,7 +47,7 @@ fn display_recipes(eng: Engine, conf: &Config) {
             continue;
         }
         sec_names.insert(s.name.clone());
-        if s.system {
+        if s.system || s.flags.contains(CommandFlags::Hide) {
             continue;
         }
         print!("    {}", s.name);

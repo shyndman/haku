@@ -11,7 +11,8 @@ use std::usize;
 
 use crate::errors::HakuError;
 use crate::func::{run_func, FuncResult};
-use crate::ops::{is_flag_on, Op, Seq, FLAG_PASS, FLAG_QUIET};
+use crate::ops::CommandFlags;
+use crate::ops::{Op, Seq};
 use crate::parse::{DisabledRecipe, HakuFile};
 use crate::var::{ExecResult, VarMgr, VarValue};
 
@@ -118,7 +119,7 @@ pub struct RecipeDesc {
     /// the recipe location (file and line)
     pub loc: RecipeLoc,
     /// recipe-wide flags (i.e., echo off, skip errors)
-    pub flags: u32,
+    pub flags: CommandFlags,
     /// recipe local variables (they override any global variables with the same names)
     pub vars: Vec<String>,
 }
@@ -232,7 +233,7 @@ struct RecipeItem {
     /// recipe's local variables (overrides existing global variables with the same names)
     vars: Vec<String>,
     /// global recipe flags (i.e., echo off)
-    flags: u32,
+    flags: CommandFlags,
 }
 
 /// Recipe content
@@ -325,7 +326,7 @@ impl Engine {
     fn run_header(&mut self, idx: usize) -> Result<(), HakuError> {
         output!(self.opts.verbosity, 3, "RUN HEADER: {}: {}", idx, self.files[idx].ops.len());
         let mut to_include: Vec<String> = Vec::new();
-        let mut to_include_flags: Vec<u32> = Vec::new();
+        let mut to_include_flags: Vec<CommandFlags> = Vec::new();
         for op in &self.files[idx].ops {
             self.real_line = op.line;
             self.file_idx = idx;
@@ -349,7 +350,8 @@ impl Engine {
             if res.is_err() {
                 output!(self.opts.verbosity, 2, "ERROR: {:?}", res);
             }
-            if res.is_err() && !is_flag_on(f, FLAG_PASS) {
+
+            if res.is_err() && f.contains(CommandFlags::Pass) {
                 return res;
             }
             eprintln!("Skipping included file: {:?}", res);
@@ -729,7 +731,7 @@ impl Engine {
             name: String::new(),
             loc: RecipeLoc { file: 0, line: 0, script_line: 0 },
             vars: Vec::new(),
-            flags: 0,
+            flags: CommandFlags::none(),
         };
         output!(self.opts.verbosity, 2, "Checking recipe: {:?}", op);
         let mut vc: Vec<RecipeItem> = Vec::new();
@@ -798,7 +800,7 @@ impl Engine {
 
     /// Executes a script from a given file and the line in it. Used by run recipe function:
     /// it looks for a recipe location and then executes from that position.
-    fn exec_from(&mut self, file: usize, line: usize, sec_flags: u32) -> Result<(), HakuError> {
+    fn exec_from(&mut self, file: usize, line: usize, sec_flags: CommandFlags) -> Result<(), HakuError> {
         let mut idx = line;
         let l = self.files[file].ops.len();
         while idx < l {
@@ -991,11 +993,12 @@ impl Engine {
     /// Before execution the engine substitutes used variables in command line.
     ///
     /// Used by script lines that are standalone shell calls, like `rm "${filename}"`
-    fn exec_cmd_shell(&mut self, flags: u32, cmdline: &str) -> Result<(), HakuError> {
-        let no_fail = is_flag_on(flags, FLAG_PASS);
+    fn exec_cmd_shell(&mut self, flags: CommandFlags, cmdline: &str) -> Result<(), HakuError> {
+        let no_fail = flags.contains(CommandFlags::Pass);
         let cmdline = self.varmgr.interpolate(&cmdline, true);
         output!(self.opts.verbosity, 2, "ExecShell[{}]: {}", no_fail, cmdline);
-        if !is_flag_on(flags, FLAG_QUIET) {
+
+        if !flags.contains(CommandFlags::Quiet) {
             println!("{}", cmdline);
         }
 
@@ -1009,14 +1012,14 @@ impl Engine {
         let st = match result {
             Ok(exit_status) => exit_status,
             Err(e) => {
-                if is_flag_on(flags, FLAG_PASS) {
+                if flags.contains(CommandFlags::Pass) {
                     return Ok(());
                 }
                 return Err(HakuError::ExecFailureError(cmdline, e.to_string(), self.error_extra()));
             }
         };
 
-        if !st.success() && !is_flag_on(flags, FLAG_PASS) {
+        if !st.success() && !flags.contains(CommandFlags::Pass) {
             let code = match st.code() {
                 None => "(unknown exit code)".to_string(),
                 Some(c) => format!("(exit code: {})", c),
@@ -1449,11 +1452,11 @@ impl Engine {
     /// finishes `if` execution by looking for its `end`. Otherwise, it evaluates `elseif`
     /// condition. If it is `true`, it starts executing `elseif` body. If `false`, looks
     /// for the next `elseif`/`else`/`end` which comes first.
-    fn exec_cd(&mut self, flags: u32, path: &str) -> Result<(), HakuError> {
+    fn exec_cd(&mut self, flags: CommandFlags, path: &str) -> Result<(), HakuError> {
         output!(self.opts.verbosity, 3, "Exec cd");
         let path = self.varmgr.interpolate(&path, true);
         let path = self.interpolate_path(&path);
-        if !is_flag_on(flags, FLAG_QUIET) {
+        if !flags.contains(CommandFlags::Quiet) {
             println!("cd {}", path);
         }
         if path == "-" {
@@ -1612,7 +1615,7 @@ mod vm_test {
         assert_eq!(vm.files[0].disabled.len(), 0);
         assert_eq!(
             mem::discriminant(&vm.files[0].ops[0].op),
-            mem::discriminant(&Op::Recipe(String::new(), 0, Vec::new(), Vec::new()))
+            mem::discriminant(&Op::Recipe(String::new(), CommandFlags::none(), Vec::new(), Vec::new()))
         );
     }
 

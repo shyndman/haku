@@ -14,7 +14,7 @@ squoted = { ("''") | ("'" ~ ("\\'" | (!"'" ~ ANY)) * ~ "'") }
 dquoted = { ("\"\"") | ("\"" ~ ("\\\"" | (!"\"" ~ ANY)) * ~ "\"") }
 string = { squoted | dquoted }
 
-cmd_flags = { ("@" | "-")* }
+cmd_flags = { ("@" | "-" | "_")* }
 
 var = @{ "$" ~ (ident | ("{" ~ ident ~ "}")) }
 
