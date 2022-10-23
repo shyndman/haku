@@ -124,6 +124,20 @@ pub struct RecipeDesc {
     pub vars: Vec<String>,
 }
 
+impl RecipeDesc {
+    pub fn is_silenced(&self) -> bool {
+        self.flags.is_silenced()
+    }
+
+    pub fn is_allowed_to_fail(&self) -> bool {
+        self.flags.is_allowed_to_fail()
+    }
+
+    pub fn is_hidden(&self) -> bool {
+        self.flags.is_hidden()
+    }
+}
+
 impl fmt::Display for RecipeDesc {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.name)?;
@@ -351,7 +365,7 @@ impl Engine {
                 output!(self.opts.verbosity, 2, "ERROR: {:?}", res);
             }
 
-            if res.is_err() && f.contains(CommandFlags::Pass) {
+            if res.is_err() && f.is_allowed_to_fail() {
                 return res;
             }
             eprintln!("Skipping included file: {:?}", res);
@@ -404,7 +418,6 @@ impl Engine {
                 }
             }
         }
-        self.recipes.sort_by(|a, b| a.name.partial_cmp(&b.name).unwrap());
     }
 
     /// Returns full path to a script by its number (the number must be less than
@@ -422,14 +435,13 @@ impl Engine {
     }
 
     /// Returns info about all loaded disabled recipes
-    pub fn disabled_recipes(&self) -> Vec<DisabledRecipe> {
-        let mut v = Vec::new();
-        for file in self.files.iter() {
-            for ds in file.disabled.iter() {
-                v.push(ds.clone());
-            }
-        }
-        v
+    pub fn disabled_recipes(&self) -> impl Iterator<Item = &DisabledRecipe> {
+        self.files.iter().flat_map(|f| f.disabled.iter())
+    }
+
+    /// Returns info about all loaded hidden recipes
+    pub fn hidden_recipes(&self) -> impl Iterator<Item = &RecipeDesc> {
+        self.recipes.iter().filter(|r| r.flags.is_hidden())
     }
 
     /// Finds the first recipe after the line `line` in file `idx`. If there is no
@@ -994,11 +1006,11 @@ impl Engine {
     ///
     /// Used by script lines that are standalone shell calls, like `rm "${filename}"`
     fn exec_cmd_shell(&mut self, flags: CommandFlags, cmdline: &str) -> Result<(), HakuError> {
-        let no_fail = flags.contains(CommandFlags::Pass);
+        let no_fail = flags.is_allowed_to_fail();
         let cmdline = self.varmgr.interpolate(&cmdline, true);
         output!(self.opts.verbosity, 2, "ExecShell[{}]: {}", no_fail, cmdline);
 
-        if !flags.contains(CommandFlags::Quiet) {
+        if !flags.is_silenced() {
             println!("{}", cmdline);
         }
 
@@ -1012,14 +1024,14 @@ impl Engine {
         let st = match result {
             Ok(exit_status) => exit_status,
             Err(e) => {
-                if flags.contains(CommandFlags::Pass) {
+                if flags.is_allowed_to_fail() {
                     return Ok(());
                 }
                 return Err(HakuError::ExecFailureError(cmdline, e.to_string(), self.error_extra()));
             }
         };
 
-        if !st.success() && !flags.contains(CommandFlags::Pass) {
+        if !st.success() && !flags.is_allowed_to_fail() {
             let code = match st.code() {
                 None => "(unknown exit code)".to_string(),
                 Some(c) => format!("(exit code: {})", c),
@@ -1456,7 +1468,7 @@ impl Engine {
         output!(self.opts.verbosity, 3, "Exec cd");
         let path = self.varmgr.interpolate(&path, true);
         let path = self.interpolate_path(&path);
-        if !flags.contains(CommandFlags::Quiet) {
+        if !flags.is_silenced() {
             println!("cd {}", path);
         }
         if path == "-" {
@@ -1595,8 +1607,9 @@ impl Engine {
 
 #[cfg(test)]
 mod vm_test {
-    use super::*;
     use std::mem;
+
+    use super::*;
 
     struct Prs {
         expr: &'static str,

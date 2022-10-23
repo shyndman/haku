@@ -1,8 +1,10 @@
-use crate::errors::HakuError;
-use crate::parse::Rule;
+use std::i64;
+
 use bitmask_enum::bitmask;
 use pest::iterators::{Pair, Pairs};
-use std::i64;
+
+use crate::errors::HakuError;
+use crate::parse::Rule;
 
 /// Describes initial condition of a `for` statement
 #[derive(Debug, Clone)]
@@ -23,9 +25,23 @@ pub enum Seq {
 
 #[bitmask(u8)] // u8
 pub enum CommandFlags {
-    Quiet,
-    Pass,
-    Hide,
+    Silenced,
+    FailOk,
+    Hidden,
+}
+
+impl CommandFlags {
+    pub fn is_silenced(&self) -> bool {
+        self.contains(Self::Silenced)
+    }
+
+    pub fn is_allowed_to_fail(&self) -> bool {
+        self.contains(Self::FailOk)
+    }
+
+    pub fn is_hidden(&self) -> bool {
+        self.contains(Self::Hidden)
+    }
 }
 
 /// Operations processed by the engine internally
@@ -134,16 +150,15 @@ pub enum Op {
 }
 
 /// Converts a prefix of a script line to a runtime flags
-fn str_to_command_flags(s: &str) -> CommandFlags {
+fn rules_to_command_flags(s: Pairs<Rule>) -> CommandFlags {
     let mut cmd_flags = CommandFlags::none();
-    if s.find('@').is_some() {
-        cmd_flags |= CommandFlags::Quiet;
-    }
-    if s.find('-').is_some() {
-        cmd_flags |= CommandFlags::Pass;
-    }
-    if s.find('_').is_some() {
-        cmd_flags |= CommandFlags::Hide;
+    for r in s {
+        match r.as_rule() {
+            Rule::cmd_flags_silenced => cmd_flags |= CommandFlags::Silenced,
+            Rule::cmd_flags_can_fail => cmd_flags |= CommandFlags::FailOk,
+            Rule::cmd_flags_hidden => cmd_flags |= CommandFlags::Hidden,
+            _ => {}
+        }
     }
     cmd_flags
 }
@@ -158,7 +173,7 @@ pub fn build_recipe(p: Pairs<Rule>) -> Result<Op, HakuError> {
     let pstr = p.as_str().to_string();
     for s in p {
         match s.as_rule() {
-            Rule::cmd_flags => flags = str_to_command_flags(s.as_str()),
+            Rule::cmd_flags => flags = rules_to_command_flags(s.into_inner()),
             Rule::sec_name => name = s.as_str().to_string(),
             Rule::sec_args => {
                 let inner = s.into_inner();
@@ -192,7 +207,7 @@ pub fn build_cd(p: Pairs<Rule>) -> Result<Op, HakuError> {
     let mut cmd = String::new();
     for s in p {
         match s.as_rule() {
-            Rule::cmd_flags => flags = str_to_command_flags(s.as_str()),
+            Rule::cmd_flags => flags = rules_to_command_flags(s.into_inner()),
             Rule::cd_body => cmd = strip_quotes(s.as_str()).to_string(),
             _ => {}
         }
@@ -207,7 +222,7 @@ pub fn build_include(p: Pairs<Rule>) -> Result<Op, HakuError> {
     let mut cmd = String::new();
     for s in p {
         match s.as_rule() {
-            Rule::cmd_flags => flags = str_to_command_flags(s.as_str()),
+            Rule::cmd_flags => flags = rules_to_command_flags(s.into_inner()),
             Rule::include_body => cmd = strip_quotes(s.as_str()).to_string(),
             _ => {}
         }
@@ -234,7 +249,7 @@ pub fn build_shell_cmd(p: Pairs<Rule>) -> Result<Op, HakuError> {
     let mut cmd = String::new();
     for s in p {
         match s.as_rule() {
-            Rule::cmd_flags => flags = str_to_command_flags(s.as_str()),
+            Rule::cmd_flags => flags = rules_to_command_flags(s.into_inner()),
             Rule::shell_cmd => cmd = s.as_str().to_string(),
             _ => {}
         }
