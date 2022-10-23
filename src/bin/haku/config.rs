@@ -1,8 +1,8 @@
-use getopts::{Matches, Options};
 use std::env;
 use std::iter::FromIterator;
 use std::process::exit;
 
+use getopts::{Matches, Options};
 use haku::errors::HakuError;
 
 pub struct Config {

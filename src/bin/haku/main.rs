@@ -4,10 +4,10 @@ use std::path::Path;
 use std::process::exit;
 
 use config::{parse_args, Config};
-
-use haku::CommandFlags;
 use haku::errors::HakuError;
 use haku::vm::{Engine, RunOpts};
+
+const INDENT_WIDTH: usize = 2;
 
 fn nice_vec_print(lst: &[String]) {
     for (idx, s) in lst.iter().enumerate() {
@@ -31,58 +31,82 @@ fn display_recipes(eng: Engine, conf: &Config) {
         return;
     }
 
+    let pad = " ".repeat(INDENT_WIDTH);
+
     let recipes = eng.recipes();
-    let disabled = eng.disabled_recipes();
-    if recipes.is_empty() && disabled.is_empty() {
-        println!("No recipes found");
+    let mut disabled = eng.disabled_recipes().peekable();
+    let mut hidden = eng.hidden_recipes().peekable();
+
+    println!("Available:");
+    if !recipes.is_empty() {
+        let mut sec_names = HashSet::new();
+        for s in recipes {
+            if sec_names.contains(&s.name) {
+                continue;
+            }
+            sec_names.insert(s.name.clone());
+            if s.system || s.flags.is_hidden() {
+                continue;
+            }
+            print!("{pad:}{}", s.name);
+            if !s.vars.is_empty() {
+                print!(" (");
+                nice_vec_print(&s.vars);
+                print!(")");
+            }
+            if !s.depends.is_empty() {
+                print!(": ");
+                nice_vec_print(&s.depends);
+            }
+            if !s.desc.is_empty() {
+                print!(" #{}", s.desc);
+            }
+            println!();
+        }
+    } else {
+        print!("    (none)");
+    }
+
+    if !conf.show_all {
         return;
     }
 
-    if !recipes.is_empty() {
-        println!("Available:");
-    }
-    let mut sec_names = HashSet::new();
-    for s in recipes {
-        if sec_names.contains(&s.name) {
-            continue;
+    println!("\nDisabled:");
+    if disabled.peek().is_some() {
+        for s in disabled {
+            print!("{pad:}{}", s.name);
+            if !s.feat.is_empty() {
+                print!(" {}", s.feat);
+            }
+            if !s.desc.is_empty() {
+                print!(" #{}", s.desc);
+            }
+            println!();
         }
-        sec_names.insert(s.name.clone());
-        if s.system || s.flags.contains(CommandFlags::Hide) {
-            continue;
-        }
-        print!("    {}", s.name);
-        if !s.vars.is_empty() {
-            print!(" (");
-            nice_vec_print(&s.vars);
-            print!(")");
-        }
-        if !s.depends.is_empty() {
-            print!(": ");
-            nice_vec_print(&s.depends);
-        }
-        if !s.desc.is_empty() {
-            print!(" #{}", s.desc);
-        }
-        println!();
+    } else {
+        println!("{pad:}(none)")
     }
 
-    if disabled.is_empty() || !conf.show_all {
-        return;
-    }
-    if !recipes.is_empty() {
-        println!()
-    }
-
-    println!("Disabled:");
-    for s in disabled {
-        print!("    {}", s.name);
-        if !s.feat.is_empty() {
-            print!(" {}", s.feat);
+    println!("\nHidden:");
+    if hidden.peek().is_some() {
+        for s in hidden {
+            print!("{pad:}{}", s.name);
+            if !s.vars.is_empty() {
+                print!(" (");
+                nice_vec_print(&s.vars);
+                print!(")");
+            }
+            if !s.depends.is_empty() {
+                print!(": ");
+                nice_vec_print(&s.depends);
+            }
+            if !s.desc.is_empty() {
+                print!(" #{}", s.desc);
+            }
+            println!();
         }
-        if !s.desc.is_empty() {
-            print!(" #{}", s.desc);
-        }
-        println!();
+    } else {
+        println!("{pad:}(none)");
     }
 }
 
