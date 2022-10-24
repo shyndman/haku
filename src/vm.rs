@@ -224,6 +224,8 @@ pub struct Engine {
     pub(crate) cwd: PathBuf,
     /// directory change stack (for "cd -" command)
     pub(crate) cwd_history: Vec<PathBuf>,
+    /// the name of the recipe invoked from the command
+    pub(crate) root_recipe_name: Option<String>,
 }
 
 /// Describes a recipe location
@@ -286,6 +288,7 @@ impl Engine {
             shell,
             cwd,
             cwd_history: Vec::new(),
+            root_recipe_name: None,
         }
     }
 
@@ -585,6 +588,7 @@ impl Engine {
 
         self.exec_init()?;
         if let Some(sec) = sec_res {
+            self.root_recipe_name = Some(sec.name.clone());
             // default recipe can be missing
             return self.exec_recipe(sec.loc);
         }

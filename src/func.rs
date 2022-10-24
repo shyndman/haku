@@ -143,8 +143,14 @@ pub(crate) fn run_func(name: &str, eng: &mut Engine, args: &[VarValue]) -> FuncR
         "ver-gt" | "ver_gt" => semver_greater(args),
         "ver-lt" | "ver_lt" => semver_less(args),
         "ver-match" | "ver_match" => semver_match(args),
+        "recipe-name" | "recipe_name" => recipe_name(eng),
         _ => Err(format!("function {} not found", name)),
     }
+}
+
+fn recipe_name(eng: &mut Engine) -> FuncResult {
+    let name_ref = eng.root_recipe_name.as_ref().unwrap();
+    return Ok(VarValue::Str(name_ref.clone()));
 }
 
 fn change_shell(eng: &mut Engine, args: &[VarValue]) -> FuncResult {
