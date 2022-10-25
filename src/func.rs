@@ -84,6 +84,7 @@ enum SemverCmp {
 pub(crate) fn run_func(name: &str, eng: &mut Engine, args: &[VarValue]) -> FuncResult {
     let lowstr = name.to_lowercase();
     match lowstr.as_str() {
+        "assert" => eval_assert(args),
         "os" => Ok(VarValue::from(os())),
         "family" | "platform" => Ok(VarValue::from(os_family())),
         "bit" => Ok(VarValue::from(pointer_width())),
@@ -146,6 +147,31 @@ pub(crate) fn run_func(name: &str, eng: &mut Engine, args: &[VarValue]) -> FuncR
         "recipe-name" | "recipe_name" => recipe_name(eng),
         _ => Err(format!("function {} not found", name)),
     }
+}
+
+const ASSERT_FAILED_MSG: &str = "assertion failed";
+const ASSERT_ARGS_MSG: &str = "assert requires an argument";
+fn eval_assert(args: &[VarValue]) -> FuncResult {
+    if args.is_empty() {
+        return Err(ASSERT_ARGS_MSG.into());
+    }
+
+    let cond = args[0].is_true();
+    if !cond {
+        let user_msg = if args.len() > 1 { Some(args[1].to_string()) } else { None };
+        let msg: String = compose_assert_msg(&user_msg);
+        Err(msg)
+    } else {
+        Ok(VarValue::Undefined)
+    }
+}
+
+fn compose_assert_msg(user_msg: &Option<String>) -> String {
+    let mut msg: String = ASSERT_FAILED_MSG.into();
+    if let Some(user_msg) = user_msg {
+        msg = format!("{}: {}", msg, user_msg);
+    }
+    msg
 }
 
 fn recipe_name(eng: &mut Engine) -> FuncResult {
@@ -839,6 +865,32 @@ fn semver_inc(args: &[VarValue]) -> FuncResult {
     }
 
     Ok(VarValue::from(format!("{}", v)))
+}
+
+#[cfg(test)]
+mod assert_test {
+    use super::*;
+
+    #[test]
+    fn test_assertion() {
+        let v: Vec<VarValue> = vec![];
+        let r = eval_assert(&v);
+        assert_eq!(r, Err(ASSERT_ARGS_MSG.into()));
+
+        let v = vec![VarValue::Int(1)];
+        let r = eval_assert(&v);
+        assert_eq!(r, Ok(VarValue::Undefined));
+
+        let v = vec![VarValue::Int(0)];
+        let r = eval_assert(&v);
+        assert_eq!(r, Err(compose_assert_msg(&None)));
+
+        let user_msg = "assertion description".to_string();
+        let e = compose_assert_msg(&Some(user_msg.clone()));
+        let v = vec![VarValue::Int(0), VarValue::Str(user_msg.clone())];
+        let r = eval_assert(&v);
+        assert_eq!(r, Err(e));
+    }
 }
 
 #[cfg(test)]
