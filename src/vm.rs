@@ -1,9 +1,11 @@
 use std::convert::From;
 use std::env;
 use std::fmt;
+use std::fs::canonicalize;
 use std::io::{self, Write};
 use std::iter::FromIterator;
 use std::mem;
+use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
 use std::time::{Duration, Instant};
@@ -342,9 +344,10 @@ impl Engine {
     /// of the script if it does not contain any recipe) and recursively loads imported scripts
     fn run_header(&mut self, idx: usize) -> Result<(), HakuError> {
         output!(self.opts.verbosity, 3, "RUN HEADER: {}: {}", idx, self.files[idx].ops.len());
-        let mut to_include: Vec<String> = Vec::new();
+        let mut to_include: Vec<PathBuf> = Vec::new();
         let mut to_include_flags: Vec<CommandFlags> = Vec::new();
         for op in &self.files[idx].ops {
+            let file = &self.files[idx];
             self.real_line = op.line;
             self.file_idx = idx;
             match &op.op {
@@ -352,8 +355,13 @@ impl Engine {
                 Op::Recipe(_, _, _, _) => break,
                 Op::Comment(_) | Op::DocComment(_) => { /* just continue */ }
                 Op::Include(flags, path) => {
-                    let inc_path = self.varmgr.interpolate(&path, true);
-                    output!(self.opts.verbosity, 3, "        !!INCLUDE - {}", inc_path);
+                    let inc_path = {
+                        let b = file.import_base_path();
+                        let import_base = Path::new(b.as_str().clone());
+                        let p = import_base.join(self.varmgr.interpolate(&path, true));
+                        canonicalize(p).unwrap()
+                    };
+
                     to_include.push(inc_path);
                     to_include_flags.push(*flags);
                 }
@@ -361,14 +369,10 @@ impl Engine {
             }
         }
         output!(self.opts.verbosity, 3, "TO INCLUDE: {}", to_include.len());
-        for (i, path) in to_include.iter().enumerate() {
-            let f = to_include_flags[i];
-            let res = self.load_from_file(path);
+        for path in to_include.iter() {
+            let res = self.load_from_file(path.to_str().unwrap());
             if res.is_err() {
                 output!(self.opts.verbosity, 2, "ERROR: {:?}", res);
-            }
-
-            if res.is_err() && f.is_allowed_to_fail() {
                 return res;
             }
         }

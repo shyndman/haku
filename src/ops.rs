@@ -256,11 +256,11 @@ pub fn build_assert(p: Pairs<Rule>) -> Result<Op, HakuError> {
         match s.as_rule() {
             Rule::cond => {
                 cond = Some(build_condition(s.into_inner())?);
-            },
+            }
             Rule::assert_body => {
                 user_msg = strip_quotes(s.as_str()).to_string();
-            },
-            _ => {},
+            }
+            _ => {}
         }
     }
 

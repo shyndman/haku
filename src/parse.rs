@@ -1,5 +1,8 @@
+use std::borrow::Borrow;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+use std::path::PathBuf;
+use std::str::FromStr;
 
 use pest::Parser;
 
@@ -39,6 +42,7 @@ pub(crate) struct OpItem {
 
 /// A single script description
 pub(crate) struct HakuFile {
+    pub(crate) path: Option<PathBuf>,
     /// list of lines that can be executed (all comment and disabled code are removed)
     pub(crate) ops: Vec<OpItem>,
     /// list of disabled recipes (for list command)
@@ -100,8 +104,27 @@ impl DeadState {
 }
 
 impl HakuFile {
-    pub(crate) fn new() -> Self {
-        HakuFile { ops: Vec::new(), disabled: Vec::new(), user_feats: Vec::new(), orig_lines: Vec::new() }
+    pub(crate) fn new_path(path: PathBuf) -> Self {
+        HakuFile {
+            path: Some(path),
+            ops: Vec::new(),
+            disabled: Vec::new(),
+            user_feats: Vec::new(),
+            orig_lines: Vec::new(),
+        }
+    }
+
+    pub(crate) fn new_string() -> Self {
+        HakuFile { path: None, ops: Vec::new(), disabled: Vec::new(), user_feats: Vec::new(), orig_lines: Vec::new() }
+    }
+
+    /// All imports/includes in this file are imported relative to this path.
+    pub(crate) fn import_base_path(&self) -> String {
+        if let Some(p) = self.path.borrow() {
+            p.parent().unwrap().to_str().unwrap().into()
+        } else {
+            panic!("Not supported for string-based HakuFiles")
+        }
     }
 
     /// Parses a single script line. Each line must contain only one rule(command/statement)
@@ -227,11 +250,14 @@ impl HakuFile {
     pub fn load_from_file(path: &str, opts: &RunOpts) -> Result<HakuFile, HakuError> {
         const BOM: [u8; 3] = [0xef, 0xbb, 0xbf];
         let bom = if let Ok(s) = String::from_utf8(BOM.to_vec()) { s } else { "".to_string() };
-        let mut hk = HakuFile::new();
         let input = match File::open(path) {
             Ok(f) => f,
             Err(e) => return Err(HakuError::FileOpenFailure(path.to_string(), e.to_string())),
         };
+
+        let mut hk = HakuFile::new_path(
+            PathBuf::from_str(path).map_err(|e| HakuError::FileOpenFailure(path.to_string(), e.to_string()))?,
+        );
         let buffered = BufReader::new(input);
         let mut full_line = String::new();
         hk.ops.clear();
@@ -265,7 +291,7 @@ impl HakuFile {
     /// Loads and parses a script from memory. If the script contains INCLUDE statements, all
     /// included files are loaded from files and parsed as well
     pub fn load_from_str(src: &str, opts: &RunOpts) -> Result<HakuFile, HakuError> {
-        let mut hk = HakuFile::new();
+        let mut hk = HakuFile::new_string();
         let mut full_line = String::new();
         hk.ops.clear();
         let mut idx: usize = 0;
