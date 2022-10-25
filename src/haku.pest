@@ -18,6 +18,7 @@ cmd_flags_can_fail = { "@" }
 cmd_flags_silenced = { "-" }
 cmd_flags_hidden = { "_" }
 cmd_flags = { (cmd_flags_can_fail | cmd_flags_silenced | cmd_flags_hidden)* }
+include_flags = { (cmd_flags_silenced | cmd_flags_hidden)* }
 
 var = @{ "$" ~ (ident | ("{" ~ ident ~ "}")) }
 
@@ -35,7 +36,7 @@ andexpr = { sexpr ~ (and_op ~ sexpr)* }
 cond = { andexpr ~ (or_op ~ andexpr)* }
 
 include_body = { string | ident }
-include_stmt = { cmd_flags? ~ (^"include" | ^"import") ~ include_body ~ eoi}
+include_stmt = { include_flags? ~ (^"include" | ^"import") ~ include_body ~ eoi}
 
 error_body = { string }
 error_stmt = { ^"error" ~ error_body }

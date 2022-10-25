@@ -227,7 +227,7 @@ pub fn build_include(p: Pairs<Rule>) -> Result<Op, HakuError> {
     let mut cmd = String::new();
     for s in p {
         match s.as_rule() {
-            Rule::cmd_flags => flags = rules_to_command_flags(s.into_inner()),
+            Rule::include_flags => flags = rules_to_command_flags(s.into_inner()),
             Rule::include_body => cmd = strip_quotes(s.as_str()).to_string(),
             _ => {}
         }

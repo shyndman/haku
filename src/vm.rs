@@ -990,7 +990,6 @@ impl Engine {
             Err(HakuError::AssertError(format!("{}", user_msg), self.error_extra()))
         }
 
-
         // return Err(HakuError::UserError(format!("{}", msg), self.error_extra()));
     }
 
