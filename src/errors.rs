@@ -14,7 +14,7 @@ pub enum HakuError {
     FileOpenFailure(String, String),
     #[error("Failed to read file '{0}'")]
     FileReadFailure(String),
-    #[error("File '{0}' does not exists")]
+    #[error("File '{0}' does not exist")]
     FileNotLoaded(usize),
     #[error("Fail to parse '{0}'{1}")]
     ParseError(String, String),
