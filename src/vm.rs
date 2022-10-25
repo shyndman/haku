@@ -649,6 +649,10 @@ impl Engine {
                     i += 1;
                 }
                 Op::Error(msg) => return self.exec_error(msg.clone()),
+                Op::Assert(cond, user_msg) => {
+                    self.exec_assert(&cond, user_msg)?;
+                    i += 1;
+                }
                 Op::DocComment(_) | Op::Comment(_) => {
                     i += 1;
                 }
@@ -833,6 +837,10 @@ impl Engine {
                 Op::Return | Op::Recipe(_, _, _, _) => return Ok(()),
                 Op::Include(_, _) => return Err(HakuError::IncludeInRecipeError(self.error_extra())),
                 Op::Error(msg) => return self.exec_error(msg.clone()),
+                Op::Assert(cond, user_msg) => {
+                    self.exec_assert(&cond, user_msg)?;
+                    idx += 1;
+                }
                 Op::Shell(flags, cmd) => {
                     let cmd_flags = sec_flags ^ flags;
                     self.exec_cmd_shell(cmd_flags, &cmd)?;
@@ -966,6 +974,24 @@ impl Engine {
     fn exec_error(&mut self, msg: String) -> Result<(), HakuError> {
         let msg = self.varmgr.interpolate(&msg, false);
         return Err(HakuError::UserError(format!("{}", msg), self.error_extra()));
+    }
+
+    fn exec_assert(&mut self, ops: &[Op], user_msg: String) -> Result<(), HakuError> {
+        output!(self.opts.verbosity, 3, "Exec assert");
+        assert!(ops.len() == 1);
+
+        let v = self.exec_op(&ops[0])?;
+        if v.is_true() {
+            output!(self.opts.verbosity, 3, "   assert == true");
+            Ok(())
+        } else {
+            output!(self.opts.verbosity, 3, "   assert == false");
+            let user_msg = self.varmgr.interpolate(&user_msg, false);
+            Err(HakuError::AssertError(format!("{}", user_msg), self.error_extra()))
+        }
+
+
+        // return Err(HakuError::UserError(format!("{}", msg), self.error_extra()));
     }
 
     /// Executes external command and collects its output. The command and its output are not

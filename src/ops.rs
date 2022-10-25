@@ -59,6 +59,11 @@ pub enum Op {
     Include(CommandFlags, String),
     /// Interrupt script with a error - error message
     Error(String),
+    /// Assert an expression is truthy
+    ///
+    /// * expression
+    /// * optional user-supplied error string
+    Assert(Vec<Op>, String),
     /// List of features which enable a following block of code
     ///
     /// * passed - whether all mentioned features are on (i.e., the block must be executed or
@@ -241,6 +246,25 @@ pub fn build_error(p: Pairs<Rule>) -> Result<Op, HakuError> {
     }
 
     Ok(Op::Error(cmd))
+}
+
+/// Parses a script line with an assert statement
+pub fn build_assert(p: Pairs<Rule>) -> Result<Op, HakuError> {
+    let mut cond: Option<Vec<Op>> = None;
+    let mut user_msg = String::new();
+    for s in p {
+        match s.as_rule() {
+            Rule::cond => {
+                cond = Some(build_condition(s.into_inner())?);
+            },
+            Rule::assert_body => {
+                user_msg = strip_quotes(s.as_str()).to_string();
+            },
+            _ => {},
+        }
+    }
+
+    Ok(Op::Assert(cond.unwrap(), user_msg))
 }
 
 /// Parses a script line with external shell execution

@@ -40,6 +40,9 @@ include_stmt = { cmd_flags? ~ (^"include" | ^"import") ~ include_body ~ eoi}
 error_body = { string }
 error_stmt = { ^"error" ~ error_body }
 
+assert_body = { string }
+assert_stmt = { ^"assert" ~ cond ~ assert_body? }
+
 feature_name = { ident }
 feature_val = { (ident | hex_int | int) ~ ("," ~ (ident | hex_int | int))* }
 feature = { not_op? ~ feature_name ~ "(" ~ feature_val ~ ")" }
@@ -94,7 +97,7 @@ for_stmt = { for_word ~ ident ~ in_word ~ seq ~ stmt_open? ~ eoi}
 shell_cmd = { ANY* }
 shell_stmt = { cmd_flags? ~ shell_cmd ~ eoi }
 
-expression = _{ SOI ~ shebang | include_stmt | error_stmt | if_stmt | elseif_stmt | else_stmt | for_stmt
+expression = _{ SOI ~ shebang | include_stmt | error_stmt | assert_stmt | if_stmt | elseif_stmt | else_stmt | for_stmt
          | while_stmt | recipe | feature_list | doc_comment | comment
          | either_def_assign | either_assign | def_assign | assign | stmt_close
          | break_stmt | cont_stmt | return_stmt | pause_stmt | cd_stmt

@@ -52,6 +52,8 @@ pub enum HakuError {
     StrayElseIfError(String),
     #[error("Only the last recipe argument can be a list: '{0}'")]
     RecipeListArgError(String),
+    #[error("Assertion failed: {0}{1}")]
+    AssertError(String, String),
     #[error("Error raised: {0}{1}")]
     UserError(String, String),
     #[error("Invalid directory {0}: {1}")]
