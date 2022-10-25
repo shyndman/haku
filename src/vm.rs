@@ -309,7 +309,7 @@ impl Engine {
     /// Generates extra info for an error
     fn error_extra(&self) -> String {
         let (filename, _line) = self.line_desc(self.file_idx, self.real_line);
-        HakuError::error_extra(&filename, self.real_line)
+        HakuError::error_extra(&filename, self.real_line + 1)
     }
 
     /// Loads and parse a script from a file (all `include` statements are processed at
