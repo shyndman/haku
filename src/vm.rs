@@ -371,7 +371,6 @@ impl Engine {
             if res.is_err() && f.is_allowed_to_fail() {
                 return res;
             }
-            eprintln!("Skipping included file: {:?}", res);
         }
         Ok(())
     }
