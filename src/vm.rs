@@ -297,7 +297,7 @@ impl Engine {
         if fidx == usize::MAX || fidx >= self.files.len() {
             return (String::new(), String::new());
         }
-        let fname = if self.files.len() == 1 { String::new() } else { self.included[fidx].clone() };
+        let fname = self.included[fidx].clone();
         if lidx == usize::MAX || lidx >= self.files[fidx].orig_lines.len() {
             return (fname, String::new());
         }
@@ -306,8 +306,8 @@ impl Engine {
 
     /// Generates extra info for an error
     fn error_extra(&self) -> String {
-        let (filename, line) = self.line_desc(self.file_idx, self.real_line);
-        HakuError::error_extra(&filename, &line, self.real_line)
+        let (filename, _line) = self.line_desc(self.file_idx, self.real_line);
+        HakuError::error_extra(&filename, self.real_line)
     }
 
     /// Loads and parse a script from a file (all `include` statements are processed at
@@ -648,7 +648,7 @@ impl Engine {
                 Op::Include(_, _) => {
                     i += 1;
                 }
-                Op::Error(msg) => return Err(HakuError::UserError(format!("{} at line {}", msg, op.line))),
+                Op::Error(msg) => return self.exec_error(msg.clone()),
                 Op::DocComment(_) | Op::Comment(_) => {
                     i += 1;
                 }
@@ -832,7 +832,7 @@ impl Engine {
             match op.op {
                 Op::Return | Op::Recipe(_, _, _, _) => return Ok(()),
                 Op::Include(_, _) => return Err(HakuError::IncludeInRecipeError(self.error_extra())),
-                Op::Error(msg) => return Err(HakuError::UserError(format!("{} at line {}", msg, op.line))),
+                Op::Error(msg) => return self.exec_error(msg.clone()),
                 Op::Shell(flags, cmd) => {
                     let cmd_flags = sec_flags ^ flags;
                     self.exec_cmd_shell(cmd_flags, &cmd)?;
@@ -961,6 +961,11 @@ impl Engine {
             idx += 1;
         }
         Err(HakuError::NoMatchingEndError(tp.to_string(), self.error_extra()))
+    }
+
+    fn exec_error(&mut self, msg: String) -> Result<(), HakuError> {
+        let msg = self.varmgr.interpolate(&msg, false);
+        return Err(HakuError::UserError(format!("{}", msg), self.error_extra()));
     }
 
     /// Executes external command and collects its output. The command and its output are not
@@ -1652,6 +1657,7 @@ mod vm_test {
             Prs { expr: "ELse", tp: Op::Else },
             Prs { expr: "brEAk", tp: Op::Break },
             Prs { expr: "continuE", tp: Op::Continue },
+            Prs { expr: "error \"Error\"", tp: Op::Error(String::new()) },
             Prs { expr: "a = `ls` || `dir` && 12 == 'zcv'", tp: Op::Assign(String::new(), Vec::new()) },
             Prs { expr: "a = `ls` || !`dir` && 12 || $ui != 'zcv'", tp: Op::Assign(String::new(), Vec::new()) },
             Prs { expr: "a ?= `ls` || `dir` || 'default'", tp: Op::DefAssign(String::new(), Vec::new()) },

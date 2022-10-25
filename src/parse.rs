@@ -111,7 +111,7 @@ impl HakuFile {
         let pairs = match res {
             Err(e) => {
                 let msg = format!("'{}': {}", line, e.to_string());
-                return Err(HakuError::ParseError(msg, HakuError::error_extra("", line, idx)));
+                return Err(HakuError::ParseError(msg, HakuError::error_extra("", idx)));
             }
             Ok(p) => p,
         };
@@ -189,7 +189,7 @@ impl HakuFile {
                     let txt = pair.as_str();
                     let pass = match process_feature(pair.into_inner(), opts, &mut feat_list) {
                         Ok(b) => b,
-                        Err(s) => return Err(HakuError::InvalidFeatureName(s, HakuError::error_extra("", line, idx))),
+                        Err(s) => return Err(HakuError::InvalidFeatureName(s, HakuError::error_extra("", idx))),
                     };
                     self.ops.push(OpItem { op: Op::Feature(pass, txt.to_string()), line: idx });
                 }
@@ -197,7 +197,7 @@ impl HakuFile {
                     self.ops.push(OpItem { op: Op::Pause, line: idx });
                 }
                 _ => {
-                    return Err(HakuError::ParseError(line.to_string(), HakuError::error_extra("", line, idx)));
+                    return Err(HakuError::ParseError(line.to_string(), HakuError::error_extra("", idx)));
                 }
             }
             // one rule per line only

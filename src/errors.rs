@@ -52,23 +52,19 @@ pub enum HakuError {
     StrayElseIfError(String),
     #[error("Only the last recipe argument can be a list: '{0}'")]
     RecipeListArgError(String),
-    #[error("Execution interrupted with message: {0}")]
-    UserError(String),
+    #[error("Error raised: {0}{1}")]
+    UserError(String, String),
     #[error("Invalid directory {0}: {1}")]
     CdError(String, String),
 }
 
 impl HakuError {
     /// Generates detailed information about a place where the error happenned.
-    pub(crate) fn error_extra(filename: &str, line: &str, line_no: usize) -> String {
-        if !filename.is_empty() && !line.is_empty() {
-            format!(" in '{}' at line {}:\n--> {}", filename, line_no, line)
-        } else if !filename.is_empty() {
-            format!(" in '{}' at line {}", filename, line_no)
-        } else if !line.is_empty() {
-            format!(" at line {}:\n--> {}", line_no, line)
+    pub(crate) fn error_extra(filename: &str, line_no: usize) -> String {
+        if !filename.is_empty() {
+            format!("\n    at {}:{}", filename, line_no)
         } else {
-            String::new()
+            format!("\n    at :{}", line_no)
         }
     }
 }
