@@ -1,4 +1,4 @@
-use std::usize;
+use std::{path::PathBuf, usize};
 
 use thiserror::Error;
 
@@ -16,6 +16,8 @@ pub enum HakuError {
     FileReadFailure(String),
     #[error("File '{0}' does not exist")]
     FileNotLoaded(usize),
+    #[error("File '{0}' does not exist{1}")]
+    IncludeNotFound(PathBuf, String),
     #[error("Fail to parse '{0}'{1}")]
     ParseError(String, String),
     #[error("FOR: sequence '{0}' must be integer: {1}")]

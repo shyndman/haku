@@ -361,7 +361,7 @@ impl Engine {
                         let p = import_base.join(self.varmgr.interpolate(&path, true));
                         match canonicalize(p.clone()) {
                             Ok(p) => Ok(p),
-                            Err(_e) => Err(HakuError::FileReadFailure(p.to_str().unwrap().into())),
+                            Err(_e) => Err(HakuError::IncludeNotFound(p, self.error_extra())),
                         }
                     }?;
 
