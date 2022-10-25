@@ -359,8 +359,11 @@ impl Engine {
                         let b = file.import_base_path();
                         let import_base = Path::new(b.as_str().clone());
                         let p = import_base.join(self.varmgr.interpolate(&path, true));
-                        canonicalize(p).unwrap()
-                    };
+                        match canonicalize(p.clone()) {
+                            Ok(p) => Ok(p),
+                            Err(_e) => Err(HakuError::FileReadFailure(p.to_str().unwrap().into())),
+                        }
+                    }?;
 
                     to_include.push(inc_path);
                     to_include_flags.push(*flags);
