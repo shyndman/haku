@@ -42,7 +42,7 @@ error_body = { string }
 error_stmt = { ^"error" ~ error_body }
 
 assert_body = { string }
-assert_stmt = { ^"assert" ~ cond ~ assert_body? }
+assert_stmt = { ^"assert" ~ cond ~ ("," ~ assert_body)? }
 
 feature_name = { ident }
 feature_val = { (ident | hex_int | int) ~ ("," ~ (ident | hex_int | int))* }
