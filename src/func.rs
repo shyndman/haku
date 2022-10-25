@@ -135,6 +135,7 @@ pub(crate) fn run_func(name: &str, eng: &mut Engine, args: &[VarValue]) -> FuncR
             }
             Ok(VarValue::from(eng.cwd_history[0].clone().to_string_lossy().to_string()))
         }
+        "is-set" | "is_set" | "isset" => is_var_set(eng, args),
         "set-env" | "set_env" | "setenv" => set_env_var(eng, args),
         "del-env" | "del_env" | "delenv" => del_env_var(eng, args),
         "clear-env" | "clear_env" | "clearenv" => eng.clear_env_vars(),
@@ -182,6 +183,15 @@ fn recipe_name(eng: &mut Engine) -> FuncResult {
 fn change_shell(eng: &mut Engine, args: &[VarValue]) -> FuncResult {
     let v: Vec<String> = args.iter().map(|v| v.to_string()).filter(|a| !a.is_empty()).collect();
     eng.set_shell(v)
+}
+
+fn is_var_set(eng: &mut Engine, args: &[VarValue]) -> FuncResult {
+    let v: Vec<String> = args.iter().map(|v| v.to_string()).filter(|a| !a.is_empty()).collect();
+    if v.len() == 1 {
+        eng.is_var_set(v[0].clone())
+    } else {
+        Err("is_var_set takes a single string argument".into())
+    }
 }
 
 fn set_env_var(eng: &mut Engine, args: &[VarValue]) -> FuncResult {

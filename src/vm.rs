@@ -605,6 +605,13 @@ impl Engine {
         Ok(VarValue::from(1))
     }
 
+    pub(crate) fn is_var_set(&mut self, name: String) -> FuncResult {
+        let value = self.varmgr.var(&name);
+        let is_set = value != VarValue::Undefined;
+        output!(self.opts.verbosity, 1, "Is ${{ {} }} set? {}", name, is_set);
+        Ok(VarValue::from(is_set))
+    }
+
     pub(crate) fn set_env_var(&mut self, name: String, value: String) -> FuncResult {
         if name.is_empty() {
             return Err("variable name missing".to_string());
